@@ -59,11 +59,13 @@ def create_dist_matrix(dist_df: pd.DataFrame, dist_from_dc: pd.DataFrame):
     Function creates distance matrix to be used in callback function later in solution process.
     """
 
+    store_order = [9999] + [s for s in dist_df["Origin Store nr"].unique()]
+
     dist_matrix = dist_df.pivot( # Create 2D-array for distances between stores
         index="Origin Store nr",
         columns="Destination Store nr",
         values="Distance (km)"
-    ).fillna(0)
+    ).fillna(0).astype(int) # integer conversion required for GoogleORTools
     
     # zero_time = 
     # null_time = f"{zero_time.hour}:{zero_time.minute:02d}"
@@ -85,8 +87,17 @@ def create_dist_matrix(dist_df: pd.DataFrame, dist_from_dc: pd.DataFrame):
     dist_matrix.loc[9999] = dc_dist
     dist_matrix.loc[9999, 9999] = 0 # 0 on diagonal
 
+
     time_matrix[9999] = dc_time 
     time_matrix.loc[9999] = dc_time
-    # time_matrix.loc[9999, 9999] = 0 
 
-    return dist_matrix, time_matrix
+    # re-order so depot is at position 0, required for data manager
+    dist_matrix = dist_matrix.loc[store_order, store_order]
+    time_matrix = time_matrix.loc[store_order, store_order]
+
+    return dist_matrix.astype(int), time_matrix
+
+def demand_decompose(demand_df: pd.DataFrame):
+    """Splits demand dataframe into separate sets for days of the week"""
+    days_of_week = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
+    return tuple(demand_df[demand_df["Day of week"] == day] for day in days_of_week)
