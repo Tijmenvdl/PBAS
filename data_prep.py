@@ -15,7 +15,7 @@ def load_data(file_name: str):
         "Rigid": {"cap": 30, "cost_km": 0.4, "cost_hour": 40, "emission_km": 0.65, "is_ev": False},
         "City": {"cap": 45, "cost_km": 0.48, "cost_hour": 48, "emission_km": 0.8, "is_ev": False},
         "Euro": {"cap": 54, "cost_km": 0.6, "cost_hour": 60, "emission_km": 1.1, "is_ev": False},
-        "EV_small": {"cap": 14, "cost_km": 0.4, "cost_hour": 40, "emission_km": 0.0, "is_ev": True},
+        "EV_small": {"cap": 15, "cost_km": 0.4, "cost_hour": 40, "emission_km": 0.0, "is_ev": True},
         "EV_big": {"cap": 30, "cost_km": 0.55, "cost_hour": 55, "emission_km": 0.0, "is_ev": True}
     }
 
