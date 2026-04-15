@@ -1,5 +1,5 @@
 import folium
-from data_prep import load_data, create_dist_matrix, demand_decompose
+from data_prep_iris import load_data, create_dist_matrix, demand_decompose
 from chvrp_model import solve_chvrptw
 
 def run_and_visualize(file_path, day_name="Mon"):
@@ -21,6 +21,8 @@ def run_and_visualize(file_path, day_name="Mon"):
     if not solution:
         print("No solution found!")
         return
+    # Add this line in main.py right after calling the solver:
+    node_to_store = {manager.IndexToNode(i): df_stores.iloc[i]['Store nr'] for i in range(len(df_stores))}
 
     # 3. Visualization logic
     depot_coords = (dc["lat"], dc["long"])
