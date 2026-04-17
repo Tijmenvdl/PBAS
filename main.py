@@ -1,4 +1,4 @@
-import folium
+import folium #test
 
 from data_prep import load_data
 from basic_vrp import basic_vrp_framework
