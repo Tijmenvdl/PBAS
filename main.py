@@ -5,7 +5,7 @@ from basic_vrp import basic_vrp_framework
 
 def show_solution():
     """Uses Folium to create map visual with solution"""
-    data, routing, manager, solution = basic_vrp_framework()
+    data, routing, manager, solution = basic_vrp_framework(demand_day=5)
 
     _, dc, df_stores, _, _ = load_data("PBAS - Data Case AH 2026.xlsx")
 
