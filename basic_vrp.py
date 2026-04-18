@@ -7,7 +7,7 @@ from ortools.constraint_solver import routing_enums_pb2, pywrapcp
 from data_prep import load_data, create_dist_matrix, demand_decompose
 
 
-def create_data_model(demand_df, dist_matrix, capacity=56, n_vehicles=30): # arbitrary capacity and nr of vehicles of 1 type for basic framework
+def create_data_model(demand_df, dist_matrix, capacity=87, n_vehicles=100): # arbitrary capacity and nr of vehicles of 1 type for basic framework
     """Function creates data in single-dictionary form, required for Google OR Tools"""
     store_nrs = dist_matrix.index.tolist()
     distance_matrix = dist_matrix.values.tolist()
