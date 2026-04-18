@@ -18,7 +18,7 @@ def load_data(file_name: str):
         "Small": {"cap": 18, "cost_km": 0.35, "cost_hour": 35, "emission_km": 0.4, "is_ev": False},
         "Rigid": {"cap": 30, "cost_km": 0.4, "cost_hour": 40, "emission_km": 0.65, "is_ev": False},
         "City": {"cap": 45, "cost_km": 0.48, "cost_hour": 48, "emission_km": 0.8, "is_ev": False},
-        "Euro": {"cap": 54, "cost_km": 0.6, "cost_hour": 60, "emission_km": 1.1, "is_ev": False},
+        "Euro": {"cap": 56, "cost_km": 0.6, "cost_hour": 60, "emission_km": 1.1, "is_ev": False},
         "EV_small": {"cap": 14, "cost_km": 0.4, "cost_hour": 40, "emission_km": 0.0, "is_ev": True},
         "EV_big": {"cap": 36, "cost_km": 0.55, "cost_hour": 55, "emission_km": 0.0, "is_ev": True}
     }
@@ -66,7 +66,7 @@ def create_dist_matrix(dist_df: pd.DataFrame, dist_from_dc: pd.DataFrame):
     dc_time = dist_from_dc.set_index("Store nr")["Driving time to DC"]
     time_matrix[9999] = dc_time
     time_matrix.loc[9999] = dc_time
-    time_matrix = time_matrix.applymap(to_minutes) 
+    time_matrix = time_matrix.map(to_minutes) #applymap deprecated in current pandas versions
     time_matrix = time_matrix.loc[store_order, store_order]
 
     return dist_matrix.astype(int), time_matrix.astype(int)
