@@ -4,7 +4,7 @@ Don't know how useful it will be, mostly used for playing around with google or 
 import numpy as np
 from ortools.constraint_solver import routing_enums_pb2, pywrapcp
 
-from data_prep import load_data, create_dist_matrix, demand_decompose
+from data_prep.data_prep import load_data, create_dist_matrix, demand_decompose
 
 
 def create_data_model(demand_df, dist_matrix, capacity=87, n_vehicles=100): # arbitrary capacity and nr of vehicles of 1 type for basic framework
