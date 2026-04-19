@@ -32,6 +32,61 @@ def compute_arc_weights(distances, times, p_km, p_t, e, _lambda):
     
     return weights, costs, emissions
 
+def greedy_warm_start(model, x, q, y, V, C, K, A_set, demand, capacity, weights):
+    """Nearest-neighbour heuristic to warm-start Gurobi."""
+    unserved = {i: demand[i] for i in C}
+    routes = []
+    current_truck = 0
+
+    while any(v > 0 for v in unserved.values()) and current_truck < len(K):
+        route = []
+        load = 0
+        current = 0  # depot
+
+        while True:
+            # Find nearest unserved customer with remaining capacity
+            candidates = {
+                i: weights[current, i]
+                for i in C
+                if unserved[i] > 0 and load < capacity
+            }
+            if not candidates:
+                break
+
+            next_node = min(candidates, key=candidates.get)
+            deliver = min(unserved[next_node], capacity - load)
+            route.append((next_node, deliver))
+            load += deliver
+            unserved[next_node] -= deliver
+            current = next_node
+
+        if route:
+            routes.append(route)
+        current_truck += 1
+
+    # Set Gurobi start values
+    for k, route in enumerate(routes):
+        visited = [node for node, _ in route]
+        for idx, (node, qty) in enumerate(route):
+            y[node, k].Start = 1
+            q[node, k].Start = qty
+            
+            # Depot to first node
+            if idx == 0 and (0, node) in A_set:
+                x[0, node, k].Start = 1
+            
+            # Node to node
+            if idx < len(route) - 1:
+                next_node = route[idx + 1][0]
+                if (node, next_node) in A_set:
+                    x[node, next_node, k].Start = 1
+
+            # Last node back to depot
+            if idx == len(route) - 1 and (node, 0) in A_set:
+                x[node, 0, k].Start = 1
+
+    return model
+
 def solve_sdvrp(weekday: str, cost_weight: float, time_limit: int):
 
     # ----  SET UP PARAMETERS AND STRUCTURE ---- 
@@ -53,14 +108,44 @@ def solve_sdvrp(weekday: str, cost_weight: float, time_limit: int):
 
     min_visits = {i: int(np.ceil(demand[i]/capacity)) for i in C}
 
-    max_trucks = sum(min_visits.values()) # UB on trucks used
+    max_trucks = int(np.ceil(sum(demand[i] for i in C) / capacity)) + 5 # UB on trucks used
     
     K = list(range(max_trucks)) # set of trucks
-    A = [(i,j) for i in V for j in V if i != j]
+
+    def get_knn_arcs(distances, V, C, k=20):
+        """For each node, keep only arcs to its k nearest neighbours.
+        Always keep arcs to/from depot."""
+
+        active = set()
+        depot = 0
+
+        for i in V:
+            if i != depot:
+                active.add((depot, i))
+                active.add((i, depot))
+
+            neighbours = sorted(
+                [j for j in C if j != i], 
+                key=lambda j: distances.loc[i,j]
+            )[:k]
+
+            for j in neighbours:
+                active.add((i,j))
+                active.add((j,i))
+
+        return list(active)
+
+    A = get_knn_arcs(distances, V, C)
+    # A = [(i,j) for i in V for j in V if i != j]
+    A_set = set(A)
     
     model = gp.Model("SDVRP")
     model.setParam("TimeLimit", time_limit)
     model.setParam("LogToConsole", 1)
+    model.setParam("MIPFocus", 1)
+    model.setParam("Cuts", 2)
+    model.setParam("Heuristics", 0.3)
+    model.setParam("MIPGap", 0.05)
 
     # ----  DECISION VARIABLES ---- 
     x = model.addVars(A, K, vtype=GRB.BINARY, name="x")
@@ -91,8 +176,8 @@ def solve_sdvrp(weekday: str, cost_weight: float, time_limit: int):
     # Flow conservation
     for i in C:
         for k in K:
-            model.addConstr(gp.quicksum(x[i,j,k] for j in V if j != i) == y[i,k], name=f"flow_in_{i}_{k}")
-            model.addConstr(gp.quicksum(x[j,i,k] for j in V if j != i) == y[i,k], name=f"flow_out_{i}_{k}")
+            model.addConstr(gp.quicksum(x[i,j,k] for j in V if j != i and (i,j) in A_set) == y[i,k], name=f"flow_in_{i}_{k}")
+            model.addConstr(gp.quicksum(x[j,i,k] for j in V if j != i and (i,j) in A_set) == y[i,k], name=f"flow_out_{i}_{k}")
 
 
     # Each truck departs at most once
@@ -118,6 +203,7 @@ def solve_sdvrp(weekday: str, cost_weight: float, time_limit: int):
         model.addConstr(gp.quicksum(x[0,j,k] for j in C) >= gp.quicksum(x[0,j,k+1] for j in C), name=f"sym_{k}")
 
     print("Model constructed, starting optimising...")
+    greedy_warm_start(model, x, q, y, V, C, K, A_set, demand, capacity, weights)
     model.optimize()
     
     # ---- EXTRACT SOLUTION ----
@@ -138,7 +224,7 @@ def solve_sdvrp(weekday: str, cost_weight: float, time_limit: int):
             current = 0
             for _ in range(len(V)+1):
                 next_node = next(
-                    (j for j in V if j != current and round(x[current,j,k].X) == 1),
+                    (j for j in V if j != current and (current,j) in A_set and round(x[current,j,k].X) == 1),
                     None
                 )
                 if next_node is None or next_node == 0:

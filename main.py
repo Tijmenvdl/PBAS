@@ -1,6 +1,7 @@
 import folium
 from data_prep.data_prep import load_data
-from Gurobi.sdvrp_gp import solve_sdvrp
+from Gurobi.mat_sdvrp_gp import solve_sdvrp
+# from Gurobi.alns_sdvrp_gp import solve_alns
 
 def run_and_visualize(weekday: str, cost_weight: float, time_limit: int):
     """Run imported SDVRP model"""
@@ -60,4 +61,4 @@ def run_and_visualize(weekday: str, cost_weight: float, time_limit: int):
     print(f"Map saved to {output_file}")
 
 if __name__ == "__main__":
-    run_and_visualize(weekday="Mon", cost_weight=0.5, time_limit=180)
+    run_and_visualize(weekday="Mon", cost_weight=0.5, time_limit=120)
