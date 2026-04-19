@@ -188,6 +188,11 @@ def solve_sdvrp(weekday: str, cost_weight: float, time_limit: int):
     # for k in K:
     #     model.addConstr(gp.quicksum(q[i,k] for i in C) <= capacity)
 
+    # Electric vehicle constraint
+    # for k in K:
+    #   if is_ev == TRUE:
+    #       model.addConstr(gp.quicksum(x[i,j,k] for j in V if j != i and (i,j) in A_set * d[i,j] for j in V if j != i and (i,j) in A_set)<= 100)
+    
     # MTZ Sub-tour elimination + capacity constr
     for k in K:
         for (i,j) in A:
