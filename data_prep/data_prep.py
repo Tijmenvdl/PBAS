@@ -1,50 +1,54 @@
-"""Python file includes functions that generates data for the rest of the project"""
-
-# Imports
 import datetime
 import pandas as pd
 
-def load_data(file_name: str):
-    """
-    Function loads data from {file_name} and outputs data required for model solution in Google OR Tools.
-    File should point to Iris' Excel file with distance-time data loaded.
-    
-    """
-    trucks = {
+def to_minutes(t):
+    """Converts time objects to minutes from midnight for OR-Tools."""
+    if pd.isna(t): 
+        return 0
+    if isinstance(t, str):
+        h, m = map(int, t.split(':'))
+        return h * 60 + m
+    if isinstance(t, (datetime.time, datetime.datetime)):
+        return t.hour * 60 + t.minute
+    return t
+
+def load_data(file_name: str, day: str):
+    # Standard fleet data
+    df_trucks = pd.DataFrame({
         "Small": {"cap": 18, "cost_km": 0.35, "cost_hour": 35, "emission_km": 0.4, "is_ev": False},
         "Rigid": {"cap": 30, "cost_km": 0.4, "cost_hour": 40, "emission_km": 0.65, "is_ev": False},
         "City": {"cap": 45, "cost_km": 0.48, "cost_hour": 48, "emission_km": 0.8, "is_ev": False},
         "Euro": {"cap": 54, "cost_km": 0.6, "cost_hour": 60, "emission_km": 1.1, "is_ev": False},
         "EV_small": {"cap": 14, "cost_km": 0.4, "cost_hour": 40, "emission_km": 0.0, "is_ev": True},
         "EV_big": {"cap": 36, "cost_km": 0.55, "cost_hour": 55, "emission_km": 0.0, "is_ev": True}
-    }
+    }).T
 
-    dc = {"long": 5.115950, "lat": 51.578056, "dock_cap": 2, "loading_time": 0.5}
+    dc = pd.DataFrame([{"Store":0, "Store nr": "DC", "Longitude": 5.115950, "Latitude": 51.578056}])
 
     df_stores = pd.read_excel(
         file_name,
         sheet_name="Store General",
-        usecols=["Store", 
-                 "Store nr", 
-                 "Longitude", 
-                 "Latitude", 
-                 "Max. allowed truck type", 
-                 "Open \n(mon - sat)", 
-                 "Close\n(mon - sat)", 
-                 "Distance to DC (km)",
-                 "Driving time to DC"]
+        usecols=["Store", "Store nr", "Longitude", "Latitude", "Max. allowed truck type", 
+                 "Open \n(mon - sat)", "Close\n(mon - sat)", "Distance to DC (km)", "Driving time to DC"]
     )
     
-    df_stores.rename(columns={
-        "Open \n(mon - sat)": "opening_time",
-        "Close\n(mon - sat)": "closing_time"
-    }, inplace=True)
+    #Create the columns the model is looking for
+    df_stores['open_min'] = df_stores["Open \n(mon - sat)"].apply(to_minutes)
+    df_stores['close_min'] = df_stores["Close\n(mon - sat)"].apply(to_minutes)
+    df_stores["Driving time to DC"] = df_stores["Driving time to DC"].apply(to_minutes)
+
+    df_stores = pd.concat([dc, df_stores], axis=0).set_index("Store") # Add DC as first fictional store to sheet
 
     df_demand = pd.read_excel(
         file_name,
         sheet_name="New volume per store per day",
         usecols=["Store", "Day of week", "Total demand for this day"]
-    )
+    ).rename(columns={"Store": "Store nr", "Total demand for this day": "demand"})
+
+    df_demand = df_demand.merge(
+        df_stores.reset_index()[["Store", "Store nr"]],
+        on="Store nr"
+    ).set_index("Store")
 
     df_distances = pd.read_excel(
         file_name,
@@ -52,52 +56,23 @@ def load_data(file_name: str):
         usecols=["Origin Store nr", "Destination Store nr", "Distance (km)", "Driving time"]
     )
 
-    return trucks, dc, df_stores, df_demand, df_distances
-
-def create_dist_matrix(dist_df: pd.DataFrame, dist_from_dc: pd.DataFrame):
-    """
-    Function creates distance matrix to be used in callback function later in solution process.
-    """
-
-    store_order = [9999] + [s for s in dist_df["Origin Store nr"].unique()]
-
-    dist_matrix = dist_df.pivot( # Create 2D-array for distances between stores
-        index="Origin Store nr",
-        columns="Destination Store nr",
-        values="Distance (km)"
-    ).fillna(0).astype(int) # integer conversion required for GoogleORTools
-    
-    # zero_time = 
-    # null_time = f"{zero_time.hour}:{zero_time.minute:02d}"
-
-    time_matrix = dist_df.pivot( # Create 2D-array for times between stores
-        index="Origin Store nr",
-        columns="Destination Store nr",
-        values="Driving time"
+    df_distances = df_distances.merge(
+        df_stores.reset_index()[["Store", "Store nr"]], left_on="Origin Store nr", right_on="Store nr"
+    ).merge(
+        df_stores.reset_index()[["Store", "Store nr"]], left_on="Destination Store nr", right_on="Store nr", suffixes=("_origin", "_destination")
     )
-    # .fillna(datetime.datetime.strptime("0:00", "%H:%M").time())
 
-    dc_dist = dist_from_dc.set_index("Store nr")["Distance to DC (km)"] # Capture distance-from-DC
-    dc_time = dist_from_dc.set_index("Store nr")["Driving time to DC"] # Capture time-from-DC
-    # dc_time["Driving time to DC"] = dc_time["Driving time to DC"].apply(
-    #     lambda t: f"{t.hour}:{t.minute:02d}"
-    # )
+    store_order = [0] + [s for s in df_distances["Store_origin"].unique()]
+    
+    # Distance matrix as integers
+    dist_matrix = df_distances.pivot(index="Store_origin", columns="Store_destination", values="Distance (km)")
+    dist_matrix[0] = df_stores["Distance to DC (km)"]
+    dist_matrix.loc[0] = df_stores["Distance to DC (km)"]
+    dist_matrix.fillna(0, inplace=True)
 
-    dist_matrix[9999] = dc_dist # Set store nr of DC to 9999, slap DC distance and times on both sides of the 2D-array
-    dist_matrix.loc[9999] = dc_dist
-    dist_matrix.loc[9999, 9999] = 0 # 0 on diagonal
+    time_matrix = df_distances.pivot(index="Store_origin", columns="Store_destination", values="Driving time")
+    time_matrix[0] = df_stores["Driving time to DC"]
+    time_matrix.loc[0] = df_stores["Driving time to DC"]
+    time_matrix = time_matrix.map(to_minutes).astype(int) + 30 #includes loading times
 
-
-    time_matrix[9999] = dc_time 
-    time_matrix.loc[9999] = dc_time
-
-    # re-order so depot is at position 0, required for data manager
-    dist_matrix = dist_matrix.loc[store_order, store_order]
-    time_matrix = time_matrix.loc[store_order, store_order]
-
-    return dist_matrix.astype(int), time_matrix
-
-def demand_decompose(demand_df: pd.DataFrame):
-    """Splits demand dataframe into separate sets for days of the week"""
-    days_of_week = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
-    return tuple(demand_df[demand_df["Day of week"] == day] for day in days_of_week)
+    return df_trucks, df_stores, df_demand[df_demand["Day of week"] == day], dist_matrix, time_matrix
