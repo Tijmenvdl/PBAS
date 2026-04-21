@@ -35,7 +35,7 @@ def compute_arc_weights_heterogeneous(distances, times, trucks, T, _lambda):
         e_km = trucks.loc[t, "emission_km"]
         for i in distances.index:
             for j in distances.index:
-                costs[i, j, t]     = p_t * times.loc[i, j] + p_km * distances.loc[i, j]
+                costs[i, j, t]     = p_t * round(times.loc[i, j]/60, 1) + p_km * distances.loc[i, j]
                 emissions[i, j, t] = e_km * distances.loc[i, j]
 
     max_c = max(costs.values()) or 1
@@ -65,7 +65,7 @@ def get_knn_arcs(distances, V, C, k=10):
 # ---------------------------------------------------------------------------
 # Greedy warm start (nearest-neighbour with split-delivery)
 # ---------------------------------------------------------------------------
-def run_greedy(C, T, trucks, demand, weights, store_max_level, truck_hierarchy):
+def run_greedy(C, T, trucks, demand, weights, store_max_level, truck_hierarchy, distances, max_EV_dist=140):
     """Builds routes one truck at a time.
 
     Truck types are tried largest-capacity non-EV first (efficient & flexible);
@@ -96,15 +96,20 @@ def run_greedy(C, T, trucks, demand, weights, store_max_level, truck_hierarchy):
         is_ev = trucks.loc[t, "is_ev"]
         t_lvl = truck_hierarchy.get(t, 4)
 
-        route, deliveries, load, cur = [], {}, 0, 0  # 0 = depot
+        route, deliveries, load, cur, route_dist = [], {}, 0, 0, 0  # 0 = depot
         while load < cap_t:
+
             cand = [i for i in C if unserved[i] > 0
                     and (is_ev or t_lvl <= store_max_level[i])]
             if not cand:
                 break
             nxt = min(cand, key=lambda i: weights[cur, i, t])
             q   = min(unserved[nxt], cap_t - load)
+            if is_ev and (route_dist + distances.loc[cur, nxt] + distances.loc[nxt, 0]) > max_EV_dist:
+                break  # returning to depot would exceed range
+
             route.append(nxt)
+            route_dist += distances.loc[cur, nxt]
             deliveries[nxt] = q
             load += q
             unserved[nxt] -= q
@@ -139,7 +144,7 @@ def apply_warm_start(x, y, q, routes, K_t, A_set):
 # ---------------------------------------------------------------------------
 # Main solve routine
 # ---------------------------------------------------------------------------
-def solve_sdvrp(weekday: str, cost_weight: float, time_limit: int):
+def solve_sdvrp(weekday: str, cost_weight: float, time_limit: int, max_EV_dist: int = 140):
 
     # ---- Load data ----
     trucks, stores, demands, distances, times = load_data(
@@ -150,6 +155,7 @@ def solve_sdvrp(weekday: str, cost_weight: float, time_limit: int):
     V = list(distances.index)   # all nodes incl. depot
     C = list(demands.index)     # customers
     T = list(trucks.index)      # truck types
+    T_EV = [t for t in T if trucks.loc[t, "is_ev"]]
 
     truck_hierarchy = {"Small": 1, "Rigid": 2, "City": 3, "Euro": 4}
     store_max_level = {i: truck_hierarchy.get(stores.loc[i, "Max. allowed truck type"], 4)
@@ -161,7 +167,7 @@ def solve_sdvrp(weekday: str, cost_weight: float, time_limit: int):
 
     # ---- Greedy warm start + fleet sizing ----
     greedy_routes = run_greedy(C, T, trucks, demand, weights,
-                               store_max_level, truck_hierarchy)
+                               store_max_level, truck_hierarchy, distances)
     greedy_count = {t: 0 for t in T}
     for (t, _, _) in greedy_routes:
         greedy_count[t] += 1
@@ -288,6 +294,14 @@ def solve_sdvrp(weekday: str, cost_weight: float, time_limit: int):
                     m.addConstr(u[j, k, t] >= u[i, k, t] + q[j, k, t]
                                 - cap_t * (1 - x[i, j, k, t]),
                                 name=f"mtz_{i}_{j}_{k}_{t}")
+    # EV range constraint: total route distance <= 140 km
+
+    for t in T_EV:
+        for k in K_t[t]:
+            m.addConstr(
+                gp.quicksum(distances.loc[i, j] * x[i, j, k, t] for (i, j) in A if (i, j) in A_set) <= max_EV_dist,
+                name=f"ev_range_{k}_{t}"
+            )
 
     # Symmetry breaking: within a truck type, use lower-index trucks first
     for t in T:
@@ -328,7 +342,7 @@ def solve_sdvrp(weekday: str, cost_weight: float, time_limit: int):
                 route.append(nxt)
                 cur = nxt
             deliveries = {i: round(q[i, k, t].X) for i in route}
-            results.append((route, deliveries))
+            results.append((route, deliveries, t))
             for (i, j) in A:
                 if round(x[i, j, k, t].X) == 1:
                     total_cost += costs[i, j, t]
