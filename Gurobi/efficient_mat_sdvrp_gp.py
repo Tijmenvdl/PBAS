@@ -77,7 +77,7 @@ def run_greedy(C, T, trucks, demand, weights, store_max_level, truck_hierarchy, 
     """
     unserved = {i: int(demand[i]) for i in C}
     routes = []
-    type_order = sorted(T, key=lambda t: (trucks.loc[t, "is_ev"], -trucks.loc[t, "cap"]))
+    type_order = sorted(T, key=lambda t: -trucks.loc[t, "cap"])
 
     while sum(unserved.values()) > 0:
         # Find the largest truck type that can still serve *someone*
@@ -210,7 +210,7 @@ def solve_sdvrp(weekday: str, cost_weight: float, time_limit: int, max_EV_dist: 
                   lb=0,
                   ub={(i, k, t): min(demand[i], trucks.loc[t, "cap"])
                       for t in T for k in K_t[t] for i in C},
-                  vtype=GRB.INTEGER, name="q")
+                  vtype=GRB.CONTINUOUS, name="q")
     u = m.addVars([(i, k, t) for t in T for k in K_t[t] for i in C],
                   lb=0,
                   ub={(i, k, t): trucks.loc[t, "cap"]

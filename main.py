@@ -81,4 +81,4 @@ def run_and_visualize(weekday: str, cost_weight: float, time_limit: int):
     print(f"Map saved to {output_file}")
 
 if __name__ == "__main__":
-    run_and_visualize(weekday="Fri", cost_weight=0.1, time_limit=120)
+    run_and_visualize(weekday="Fri", cost_weight=0.5, time_limit=120)
