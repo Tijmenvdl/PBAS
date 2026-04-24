@@ -165,9 +165,9 @@ def solve_sdvrp(weekday: str, cost_weight: float, time_limit: int, max_EV_dist: 
 
     print(f"\n=== {weekday} ===  |C|={len(C)}  total demand={int(demand.sum())}")
     print(f"Greedy built {len(greedy_routes)} routes")
-    for t in T:
-        print(f"  {t:<10s} greedy used={greedy_count[t]:3d}   fleet allocated={len(K_t[t]):3d}")
-    print(f"  TOTAL fleet: {sum(len(v) for v in K_t.values())}\n")
+    # for t in T:
+    #     print(f"  {t:<10s} greedy used={greedy_count[t]:3d}   fleet allocated={len(K_t[t]):3d}")
+    # print(f"  TOTAL fleet: {sum(len(v) for v in K_t.values())}\n")
 
     # ---- Arc set: kNN + all arcs used by greedy (guarantees warm start valid) ----
     A_set = set(get_knn_arcs(distances, V, C, k=10))
@@ -183,13 +183,13 @@ def solve_sdvrp(weekday: str, cost_weight: float, time_limit: int, max_EV_dist: 
 
     # ---- Gurobi model ----
     m = gp.Model("SDVRP")
+    m.setParam("LogToConsole", 0)
     m.setParam("TimeLimit", time_limit)
     m.setParam("MIPGap", 0.05)
     m.setParam("MIPFocus", 1)       # prioritise finding good feasible solutions
     m.setParam("Heuristics", 0.2)
     m.setParam("Cuts", 2)
-    m.setParam("LogToConsole", 1)
-
+    
     x = m.addVars([(i, j, k, t) for t in T for k in K_t[t] for (i, j) in A],
                   vtype=GRB.BINARY, name="x")
     y = m.addVars([(i, k, t) for t in T for k in K_t[t] for i in C],
@@ -327,18 +327,20 @@ def solve_sdvrp(weekday: str, cost_weight: float, time_limit: int, max_EV_dist: 
                 nxt = next((j for j in V if j != cur and (cur, j) in A_set
                             and round(x[cur, j, k, t].X) == 1), None)
                 if nxt is None or nxt == 0:
+                    trip_km += distances.loc[cur, nxt]
+                    trip_duration += times.loc[cur, nxt]
                     break
                 route.append(nxt)
                 trip_km += distances.loc[cur, nxt]
                 trip_duration += times.loc[cur, nxt]
                 cur = nxt
             deliveries = {i: round(q[i, k, t].X) for i in route}
-            results.append((route, deliveries, t, trip_km, trip_duration))
+            results.append((weekday, route, deliveries, t, trip_km, trip_duration))
             for (i, j) in A:
                 if round(x[i, j, k, t].X) == 1:
                     total_cost += costs[i, j, t]
                     total_em   += emissions[i, j, t]
 
-    print(f"Total cost:     EUR {total_cost:.2f}")
-    print(f"Total emission: {total_em:.2f} kg CO2")
-    return results, m.ObjVal
+    print(f"Day cost:     EUR {total_cost:.2f}")
+    print(f"Day emission: {total_em:.2f} kg CO2")
+    return results, m.ObjVal, total_cost, total_em
