@@ -1,4 +1,4 @@
 *.xlsx
 *.pyc
 *.html
-/.venv
+.venv/
