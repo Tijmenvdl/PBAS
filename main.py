@@ -1,6 +1,6 @@
 import folium
 from data_prep.data_prep import load_data
-from Gurobi.mat_sdvrp_gp import solve_sdvrp
+from Gurobi.efficient_mat_sdvrp_gp import solve_sdvrp #Pak hier EFFICIENT_MAT voor de claude "verbetering"
 # from Gurobi.alns_sdvrp_gp import solve_alns
 
 def run_and_visualize(weekday: str, cost_weight: float, time_limit: int):
@@ -16,7 +16,17 @@ def run_and_visualize(weekday: str, cost_weight: float, time_limit: int):
 
     #Visualization logic
     colours = ["red", "blue", "green", "purple", "orange", "darkred", "cadetblue", "black"]
-    _, stores, _, _, _ = load_data(file_name="PBAS - Data Case AH 2026.xlsx", day=weekday)
+    truck_type_colours = {
+        "Small": "#93C6E0",
+        "Rigid": "#4A90D9",
+        "City": "#1F5FA6",
+        "Euro": "#0D2F6E",
+        "EV_small": "#6DBF8A",
+        "EV_big": "#1E7A3E"
+    }
+    _, stores, demands, _, _ = load_data(file_name="PBAS - Data Case AH 2026.xlsx", day=weekday)
+    demand = demands["demand"]
+
     depot_coords = (stores.loc[0, "Latitude"], stores.loc[0, "Longitude"])
 
     route_map = folium.Map(location=depot_coords, zoom_start=13, tiles="CartoDB positron")
@@ -32,15 +42,21 @@ def run_and_visualize(weekday: str, cost_weight: float, time_limit: int):
         lat, lon = stores.loc[i, "Latitude"], stores.loc[i, "Longitude"]
         folium.Marker(
                 [lat, lon],
-                tooltip=f"Store: {stores.loc[i, 'Store nr']}",
+                tooltip=folium.Tooltip(
+                    f"Store: {stores.loc[i, 'Store nr']}<br>"
+                    f"Demand: {demand[i]}<br>"
+                    f"Max truck: {stores.loc[i, 'Max. allowed truck type']}",
+                    sticky=True
+                ),
                 icon=folium.Icon(
                     color="blue"
                 )
             ).add_to(route_map)
 
-    for truck_id, (route, deliveries) in enumerate(results):
-        print(truck_id, route, deliveries)
+    for truck_id, (route, deliveries, truck_type) in enumerate(results):
+        print(truck_id, route, deliveries, truck_type)
         route_coords = [depot_coords]
+        colour = truck_type_colours.get(truck_type)
 
         for node in route:
             lat, lon = stores.loc[node, "Latitude"], stores.loc[node, "Longitude"]
@@ -50,10 +66,14 @@ def run_and_visualize(weekday: str, cost_weight: float, time_limit: int):
 
         folium.PolyLine(
             route_coords,
-            color=colours[truck_id % len(colours)],
+            color=colour,
             weight=3,
             opacity=0.8,
-            tooltip=f"Route {truck_id}"
+            tooltip=folium.Tooltip(
+                f"Route {truck_id}<br>"
+                f"Type {truck_type}",
+                sticky=True
+            )
         ).add_to(route_map)
     
     output_file = f"routes_{weekday}.html"
@@ -61,4 +81,6 @@ def run_and_visualize(weekday: str, cost_weight: float, time_limit: int):
     print(f"Map saved to {output_file}")
 
 if __name__ == "__main__":
-    run_and_visualize(weekday="Mon", cost_weight=0.5, time_limit=120)
+    run_and_visualize(weekday="Fri", cost_weight=0.5, time_limit=300)
+
+print()
