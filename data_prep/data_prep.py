@@ -73,6 +73,6 @@ def load_data(file_name: str, day: str):
     time_matrix = df_distances.pivot(index="Store_origin", columns="Store_destination", values="Driving time")
     time_matrix[0] = df_stores["Driving time to DC"]
     time_matrix.loc[0] = df_stores["Driving time to DC"]
-    time_matrix = time_matrix.map(to_minutes).astype(int) + 30 #includes loading times
+    time_matrix = time_matrix.map(to_minutes).astype(int) + 30 # includes loading times
 
     return df_trucks, df_stores, df_demand[df_demand["Day of week"] == day], dist_matrix, time_matrix

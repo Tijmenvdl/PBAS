@@ -15,7 +15,6 @@ def run_and_visualize(weekday: str, cost_weight: float, time_limit: int):
         return None
 
     #Visualization logic
-    colours = ["red", "blue", "green", "purple", "orange", "darkred", "cadetblue", "black"]
     truck_type_colours = {
         "Small": "#93C6E0",
         "Rigid": "#4A90D9",
@@ -53,8 +52,8 @@ def run_and_visualize(weekday: str, cost_weight: float, time_limit: int):
                 )
             ).add_to(route_map)
 
-    for truck_id, (route, deliveries, truck_type) in enumerate(results):
-        print(truck_id, route, deliveries, truck_type)
+    for truck_id, (route, deliveries, truck_type, trip_km, trip_duration) in enumerate(results):
+        print(truck_id, route, deliveries, truck_type, trip_km, trip_duration)
         route_coords = [depot_coords]
         colour = truck_type_colours.get(truck_type)
 
@@ -81,6 +80,6 @@ def run_and_visualize(weekday: str, cost_weight: float, time_limit: int):
     print(f"Map saved to {output_file}")
 
 if __name__ == "__main__":
-    run_and_visualize(weekday="Fri", cost_weight=0.5, time_limit=300)
+    run_and_visualize(weekday="Sat", cost_weight=0.5, time_limit=30)
 
 print()

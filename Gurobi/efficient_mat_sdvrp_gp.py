@@ -322,15 +322,18 @@ def solve_sdvrp(weekday: str, cost_weight: float, time_limit: int, max_EV_dist: 
             if sum(round(x[0, j, k, t].X) for j in C if (0, j) in A_set) == 0:
                 continue
             route, cur = [], 0
+            trip_km, trip_duration = 0, 0
             for _ in range(len(V) + 1):
                 nxt = next((j for j in V if j != cur and (cur, j) in A_set
                             and round(x[cur, j, k, t].X) == 1), None)
                 if nxt is None or nxt == 0:
                     break
                 route.append(nxt)
+                trip_km += distances.loc[cur, nxt]
+                trip_duration += times.loc[cur, nxt]
                 cur = nxt
             deliveries = {i: round(q[i, k, t].X) for i in route}
-            results.append((route, deliveries, t))
+            results.append((route, deliveries, t, trip_km, trip_duration))
             for (i, j) in A:
                 if round(x[i, j, k, t].X) == 1:
                     total_cost += costs[i, j, t]
