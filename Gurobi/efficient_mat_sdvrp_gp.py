@@ -8,7 +8,7 @@ import numpy as np
 import gurobipy as gp
 from gurobipy import GRB
 
-from data_prep import load_data
+from data_prep.data_prep import load_data
 
 
 # ---------------------------------------------------------------------------
