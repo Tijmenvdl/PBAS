@@ -36,7 +36,7 @@ def compute_arc_weights_heterogeneous(distances, times, trucks, T, _lambda):
 # ---------------------------------------------------------------------------
 # kNN arc reduction (depot arcs are always kept)
 # ---------------------------------------------------------------------------
-def get_knn_arcs(distances, V, C, k=10):
+def get_knn_arcs(distances, V, C, k=20):
     active = set()
     depot = 0
     for i in V:
@@ -231,6 +231,18 @@ def solve_sdvrp(weekday: str, cost_weight: float, time_limit: int, max_EV_dist: 
             >= int(np.ceil(demand[i] / max_cap_i[i])),
             name=f"min_visits_{i}"
         )
+
+    # Limit SDs
+    # for i in C:
+    #     m.addConstr(
+    #         gp.quicksum(y[i,k,t] for t in T for k in K_t[t]) <= 2 # demand fulfillment spread out over at most 2 routes
+    #     )
+    
+    # for i in C:
+    #     for t in T:
+    #         for k in K_t[t]:
+    #             m.addConstr(u[i,k,t]<=demand[i])
+    #             m.addConstr(u[i,k,t]>=q[i,k,t])
 
     # Link q to y
     for i in C:
