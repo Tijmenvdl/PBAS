@@ -45,7 +45,7 @@ def load_data(file_name: str, day: str):
         usecols=["Store", "Day of week", "Total demand for this day"]
     ).rename(columns={"Store": "Store nr", "Total demand for this day": "demand"})
 
-    df_demand.loc[df_demand["Store nr"].isin([1160, 1102]), "demand"] = 0
+    # df_demand.loc[df_demand["Store nr"].isin([1160, 1102]), "demand"] = 0
 
     df_demand = df_demand.merge(
         df_stores.reset_index()[["Store", "Store nr"]],

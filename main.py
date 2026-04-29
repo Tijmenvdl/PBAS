@@ -90,7 +90,7 @@ def full_week():
     total_cost, total_em = 0, 0
     with pd.ExcelWriter("schedule.xlsx") as writer:
         for day in ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]:
-            day_result, cost, em = run_and_visualize(weekday=day, cost_weight=0.5, time_limit=10)
+            day_result, cost, em = run_and_visualize(weekday=day, cost_weight=0.5, time_limit=60)
             day_result.to_excel(writer, sheet_name=day)
             full_week_results = pd.concat([full_week_results, day_result])
             total_cost += cost

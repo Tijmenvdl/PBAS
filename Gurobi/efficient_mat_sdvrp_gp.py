@@ -183,12 +183,14 @@ def solve_sdvrp(weekday: str, cost_weight: float, time_limit: int, max_EV_dist: 
 
     # ---- Gurobi model ----
     m = gp.Model("SDVRP")
-    m.setParam("LogToConsole", 0)
+    # m.setParam("LogToConsole", 0)
     m.setParam("TimeLimit", time_limit)
     m.setParam("MIPGap", 0.05)
-    m.setParam("MIPFocus", 1)       # prioritise finding good feasible solutions
-    m.setParam("Heuristics", 0.2)
-    m.setParam("Cuts", 2)
+    m.setParam("MIPFocus", 2)      
+    m.setParam("Heuristics", 0.5)
+    m.setParam("Cuts", 3)
+    m.setParam("RINS", 10)
+    m.setParam("Presolve", 2)
     
     x = m.addVars([(i, j, k, t) for t in T for k in K_t[t] for (i, j) in A],
                   vtype=GRB.BINARY, name="x")
@@ -322,17 +324,17 @@ def solve_sdvrp(weekday: str, cost_weight: float, time_limit: int, max_EV_dist: 
             if sum(round(x[0, j, k, t].X) for j in C if (0, j) in A_set) == 0:
                 continue
             route, cur = [], 0
-            trip_km, trip_duration = 0, 0
+            trip_km, trip_duration = 0, []
             for _ in range(len(V) + 1):
                 nxt = next((j for j in V if j != cur and (cur, j) in A_set
                             and round(x[cur, j, k, t].X) == 1), None)
                 if nxt is None or nxt == 0:
                     trip_km += distances.loc[cur, nxt]
-                    trip_duration += times.loc[cur, nxt]
+                    trip_duration.append(int(times.loc[cur, nxt]))
                     break
                 route.append(nxt)
                 trip_km += distances.loc[cur, nxt]
-                trip_duration += times.loc[cur, nxt]
+                trip_duration.append(int(times.loc[cur, nxt]))
                 cur = nxt
             deliveries = {i: round(q[i, k, t].X) for i in route}
             results.append((weekday, route, deliveries, t, trip_km, trip_duration))
