@@ -41,17 +41,15 @@ def load_data(file_name: str, day: str):
 
     df_demand = pd.read_excel(
         file_name,
-        sheet_name="New volume per store per day",
-        usecols=["Store", "Day of week", "Total demand for this day"]
-    ).rename(columns={"Store": "Store nr", "Total demand for this day": "demand"})
-
-    # df_demand.loc[df_demand["Store nr"].isin([1160, 1102]), "demand"] = 0
+        sheet_name="Smooth Demands",
+        usecols=["Store", "Day of week", "Smooted delivery schedule"]
+    ).rename(columns={"Store": "Store nr", "Smooted delivery schedule": "demand"})
 
     df_demand = df_demand.merge(
         df_stores.reset_index()[["Store", "Store nr"]],
         on="Store nr"
     ).set_index("Store")
- 
+
     df_distances = pd.read_excel(
         file_name,
         sheet_name="Distances",
@@ -75,6 +73,8 @@ def load_data(file_name: str, day: str):
     time_matrix = df_distances.pivot(index="Store_origin", columns="Store_destination", values="Driving time")
     time_matrix[0] = df_stores["Driving time to DC"]
     time_matrix.loc[0] = df_stores["Driving time to DC"]
-    time_matrix = time_matrix.map(to_minutes).astype(int) + 30 # includes loading times
+    time_matrix = time_matrix.map(to_minutes).astype(int) + 30 #includes loading times
 
     return df_trucks, df_stores, df_demand[df_demand["Day of week"] == day], dist_matrix, time_matrix
+# load_data("PBAS - Data Case AH 2026.xlsx", "Mon")
+# print()
