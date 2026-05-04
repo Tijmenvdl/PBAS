@@ -163,8 +163,8 @@ def solve_sdvrp(weekday: str, cost_weight: float, time_limit: int, max_EV_dist: 
     # Fleet = greedy usage + 2 (feasibility guaranteed, small enough to solve fast)
     K_t = {t: list(range(greedy_count[t] + 2)) for t in T}
 
-    print(f"\n=== {weekday} ===  |C|={len(C)}  total demand={int(demand.sum())}")
-    print(f"Greedy built {len(greedy_routes)} routes")
+    # print(f"\n=== {weekday} ===  |C|={len(C)}  total demand={int(demand.sum())}")
+    # print(f"Greedy built {len(greedy_routes)} routes")
     # for t in T:
     #     print(f"  {t:<10s} greedy used={greedy_count[t]:3d}   fleet allocated={len(K_t[t]):3d}")
     # print(f"  TOTAL fleet: {sum(len(v) for v in K_t.values())}\n")
@@ -183,7 +183,7 @@ def solve_sdvrp(weekday: str, cost_weight: float, time_limit: int, max_EV_dist: 
 
     # ---- Gurobi model ----
     m = gp.Model("SDVRP")
-    # m.setParam("LogToConsole", 0)
+    m.setParam("LogToConsole", 0)
     m.setParam("TimeLimit", time_limit)
     m.setParam("MIPGap", 0.05)
     m.setParam("MIPFocus", 2)      
@@ -319,7 +319,7 @@ def solve_sdvrp(weekday: str, cost_weight: float, time_limit: int, max_EV_dist: 
     apply_warm_start(x, y, q, greedy_routes, K_t, A_set)
     m.update()
 
-    print("Model built. Optimising...")
+    # print("Model built. Optimising...")
     m.optimize()
 
     # ---- Extract solution ----
@@ -327,7 +327,7 @@ def solve_sdvrp(weekday: str, cost_weight: float, time_limit: int, max_EV_dist: 
         print("No feasible solution found within time limit.")
         return [], None
 
-    print(f"\nSolve time: {m.Runtime:.2f}s   Obj: {m.ObjVal:.4f}   Gap: {m.MIPGap * 100:.2f}%")
+    # print(f"\nSolve time: {m.Runtime:.2f}s   Obj: {m.ObjVal:.4f}   Gap: {m.MIPGap * 100:.2f}%")
 
     results = []
     total_cost = total_em = 0.0
@@ -355,6 +355,6 @@ def solve_sdvrp(weekday: str, cost_weight: float, time_limit: int, max_EV_dist: 
                     total_cost += costs[i, j, t]
                     total_em   += emissions[i, j, t]
 
-    print(f"Day cost:     EUR {total_cost:.2f}")
-    print(f"Day emission: {total_em:.2f} kg CO2")
+    # print(f"Day cost:     EUR {total_cost:.2f}")
+    # print(f"Day emission: {total_em:.2f} kg CO2")
     return results, m.ObjVal, total_cost, total_em
