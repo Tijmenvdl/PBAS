@@ -319,8 +319,9 @@ def solve_sdvrp(weekday: str, cost_weight: float, time_limit: int, max_EV_dist: 
     apply_warm_start(x, y, q, greedy_routes, K_t, A_set)
     m.update()
 
-    # print("Model built. Optimising...")
+    print(f"Starting Gurobi solve for {weekday} with time limit={time_limit}s...")
     m.optimize()
+    print(f"Finished solve in {m.Runtime:.1f}s | Obj={m.ObjVal:.4f} | Gap={m.MIPGap * 100:.2f}%")
 
     # ---- Extract solution ----
     if m.SolCount == 0:
