@@ -2,13 +2,14 @@ import folium
 import pandas as pd
 from data_prep.data_prep import load_data
 from Gurobi.efficient_mat_sdvrp_gp import solve_sdvrp #Pak hier EFFICIENT_MAT voor de claude "verbetering"
+import matplotlib.pyplot as plt
 # from Gurobi.alns_sdvrp_gp import solve_alns
 
 def run_and_visualize(weekday: str, cost_weight: float, time_limit: int):
     """Run imported SDVRP model"""
 
     #Solve model
-    print(f"Solving for {weekday}...")
+    # print(f"Solving for {weekday}...")
     results, objval, total_cost, total_em = solve_sdvrp(weekday, cost_weight, time_limit)
 
     if results == []:
@@ -79,18 +80,18 @@ def run_and_visualize(weekday: str, cost_weight: float, time_limit: int):
     
     output_file = f"routes_{weekday}.html"
     route_map.save(output_file)
-    print(f"Map saved to {output_file}")
+    # print(f"Map saved to {output_file}")
 
     df =  pd.DataFrame(results, columns=["Weekday", "Route", "Quantities", "Truck type", "Distance (km)", "Duration (min)"])
     return df, total_cost, total_em
 
 
-def full_week():
+def full_week(lam):
     full_week_results = pd.DataFrame() # Initialise empty frame
     total_cost, total_em = 0, 0
     with pd.ExcelWriter("schedule.xlsx") as writer:
         for day in ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]:
-            day_result, cost, em = run_and_visualize(weekday=day, cost_weight=0.5, time_limit=20)
+            day_result, cost, em = run_and_visualize(weekday=day, cost_weight=lam, time_limit=300)
             day_result.to_excel(writer, sheet_name=day)
             full_week_results = pd.concat([full_week_results, day_result])
             total_cost += cost
@@ -99,9 +100,36 @@ def full_week():
     print(f"Total emission: {total_em:.2f} kg CO2")
 
     full_week_results.to_excel(writer, sheet_name="Full schedule")
-    return full_week_results
+    return total_cost, total_em, full_week_results
 
 if __name__ == "__main__":
-    full_week()
+    all_costs, all_ems = [], []
+    all_lambdas = [0.4]
+    for lam in all_lambdas:
+        test_cost, test_em, _ = full_week(lam)
+        all_costs.append(test_cost)
+        all_ems.append(test_em)
+
+    print(all_costs)
+    print(all_ems)
+
+    fig, ax1 = plt.subplots()
+
+    # Plot temperature on the left y-axis
+    ax1.plot(all_lambdas, all_costs, 'r-o', label='Transport cost (EUR)')
+    ax1.set_xlabel('Lambda weight for cost efficiency')
+    ax1.set_ylabel('Cost (EUR)', color='r')
+    ax1.tick_params(axis='y', labelcolor='r')
+
+    # Create a second y-axis for electricity consumption
+    ax2 = ax1.twinx()
+    ax2.plot(all_lambdas, all_ems, 'b-s', label='Emissions (kg CO2)')
+    ax2.set_ylabel('Emissions (kg CO2)', color='b')
+    ax2.tick_params(axis='y', labelcolor='b')
+
+    # Add title and show plot
+    plt.title('Trade-off between costs and emissions')
+    fig.tight_layout()
+    plt.show()
 
 print()
